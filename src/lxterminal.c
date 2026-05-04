@@ -573,7 +573,10 @@ static gboolean statusline_battery_markup(GString * markup, gboolean use_color)
 
     if (!use_color)
     {
-        g_string_append_printf(markup, "%s%s%d%% ", state_icon, icon, capacity);
+        if (capacity < 10)
+            g_string_append_printf(markup, "<span foreground=\"#ff0000\">%s%s%d%%</span> ", state_icon, icon, capacity);
+        else
+            g_string_append_printf(markup, "%s%s%d%% ", state_icon, icon, capacity);
     }
     else
     {
@@ -724,12 +727,10 @@ static void terminal_statusline_set_markup(LXTerminal * terminal, gchar * markup
     }
     else
     {
-        gchar * escaped = g_markup_escape_text(markup, -1);
-        gchar * gray_markup = g_strdup_printf("<b><span foreground=\"" STATUSLINE_INACTIVE_COLOR "\">%s</span></b>", escaped);
+        gchar * gray_markup = g_strdup_printf("<b><span foreground=\"" STATUSLINE_INACTIVE_COLOR "\">%s</span></b>", markup);
         gtk_label_set_markup(GTK_LABEL(terminal->statusline), gray_markup);
         gtk_widget_set_tooltip_markup(terminal->statusline, gray_markup);
         g_free(gray_markup);
-        g_free(escaped);
     }
     g_free(markup);
 }
