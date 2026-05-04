@@ -573,7 +573,7 @@ static gboolean statusline_battery_markup(GString * markup, gboolean use_color)
 
     if (!use_color)
     {
-        if (capacity < 10)
+        if (capacity < 20)
             g_string_append_printf(markup, "<span foreground=\"#ff0000\">%s%s%d%%</span> ", state_icon, icon, capacity);
         else
             g_string_append_printf(markup, "%s%s%d%% ", state_icon, icon, capacity);
