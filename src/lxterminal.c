@@ -708,6 +708,7 @@ static gchar * terminal_statusline_build_markup(LXTerminal * terminal, gboolean 
     if (terminal->statusline_cached_body != NULL)
         g_string_append(markup, terminal->statusline_cached_body);
 
+    g_string_append(markup, "  ");
     return g_string_free(markup, FALSE);
 }
 
@@ -715,13 +716,15 @@ static void terminal_statusline_set_markup(LXTerminal * terminal, gchar * markup
 {
     if (get_setting()->statusline_color)
     {
-        gtk_label_set_markup(GTK_LABEL(terminal->statusline), markup);
-        gtk_widget_set_tooltip_markup(terminal->statusline, markup);
+        gchar * bold_markup = g_strdup_printf("<b>%s</b>", markup);
+        gtk_label_set_markup(GTK_LABEL(terminal->statusline), bold_markup);
+        gtk_widget_set_tooltip_markup(terminal->statusline, bold_markup);
+        g_free(bold_markup);
     }
     else
     {
         gchar * escaped = g_markup_escape_text(markup, -1);
-        gchar * gray_markup = g_strdup_printf("<span foreground=\"" STATUSLINE_INACTIVE_COLOR "\">%s</span>", escaped);
+        gchar * gray_markup = g_strdup_printf("<b><span foreground=\"" STATUSLINE_INACTIVE_COLOR "\">%s</span></b>", escaped);
         gtk_label_set_markup(GTK_LABEL(terminal->statusline), gray_markup);
         gtk_widget_set_tooltip_markup(terminal->statusline, gray_markup);
         g_free(gray_markup);
