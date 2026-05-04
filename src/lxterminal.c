@@ -54,6 +54,7 @@ static gchar * terminal_get_current_dir(LXTerminal * terminal);
 static const gchar * terminal_get_preferred_shell();
 static void terminal_statusline_initialize(LXTerminal * terminal);
 static gboolean terminal_statusline_update(LXTerminal * terminal);
+static gboolean terminal_statusline_finish_cpu_sample(LXTerminal * terminal);
 static void terminal_statusline_refresh_visibility(LXTerminal * terminal);
 
 /* Menu and accelerator event handlers. */
@@ -259,31 +260,6 @@ static gboolean statusline_parse_proc_stat(guint64 * idle_value, guint64 * total
     }
 
     return result;
-}
-
-static gboolean statusline_cpu_usage(LXTerminal * terminal, gdouble * usage)
-{
-    guint64 idle = 0;
-    guint64 total = 0;
-
-    if (!statusline_parse_proc_stat(&idle, &total))
-        return FALSE;
-
-    if (terminal->statusline_has_cpu_sample && total > terminal->statusline_cpu_total)
-    {
-        guint64 idle_delta = idle - terminal->statusline_cpu_idle;
-        guint64 total_delta = total - terminal->statusline_cpu_total;
-        *usage = total_delta > 0 ? (gdouble)(total_delta - idle_delta) * 100.0 / (gdouble) total_delta : 0.0;
-    }
-    else
-    {
-        *usage = 0.0;
-    }
-
-    terminal->statusline_cpu_idle = idle;
-    terminal->statusline_cpu_total = total;
-    terminal->statusline_has_cpu_sample = TRUE;
-    return TRUE;
 }
 
 static void statusline_append_percent(GString * markup, const gchar * icon, gdouble value, gboolean use_color)
@@ -691,7 +667,7 @@ static void statusline_append_time(GString * markup, gboolean use_color)
         g_string_append(markup, buffer);
 }
 
-static gboolean terminal_statusline_update(LXTerminal * terminal)
+static gchar * terminal_statusline_build_body(void)
 {
     Setting * setting = get_setting();
     GString * markup;
@@ -699,16 +675,7 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
     gint temp = 0;
     gboolean use_color = setting->statusline_color;
 
-    if (terminal->statusline == NULL)
-        return FALSE;
-
-    if (!setting->statusline_enabled)
-        return TRUE;
-
     markup = g_string_new(NULL);
-
-    if (setting->statusline_cpu && statusline_cpu_usage(terminal, &value))
-        statusline_append_percent(markup, " ", value, use_color);
 
     if (setting->statusline_gpu && statusline_gpu_usage(&value))
         statusline_append_percent(markup, "", value, use_color);
@@ -728,22 +695,91 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
     if (setting->statusline_time)
         statusline_append_time(markup, use_color);
 
-    if (use_color)
+    return g_string_free(markup, FALSE);
+}
+
+static gchar * terminal_statusline_build_markup(LXTerminal * terminal, gboolean include_cpu, gdouble cpu_usage)
+{
+    GString * markup = g_string_new(NULL);
+
+    if (get_setting()->statusline_cpu && include_cpu)
+        statusline_append_percent(markup, " ", cpu_usage, get_setting()->statusline_color);
+
+    if (terminal->statusline_cached_body != NULL)
+        g_string_append(markup, terminal->statusline_cached_body);
+
+    return g_string_free(markup, FALSE);
+}
+
+static void terminal_statusline_set_markup(LXTerminal * terminal, gchar * markup)
+{
+    if (get_setting()->statusline_color)
     {
-        gtk_label_set_markup(GTK_LABEL(terminal->statusline), markup->str);
-        gtk_widget_set_tooltip_markup(terminal->statusline, markup->str);
+        gtk_label_set_markup(GTK_LABEL(terminal->statusline), markup);
+        gtk_widget_set_tooltip_markup(terminal->statusline, markup);
     }
     else
     {
-        gchar * escaped = g_markup_escape_text(markup->str, -1);
+        gchar * escaped = g_markup_escape_text(markup, -1);
         gchar * gray_markup = g_strdup_printf("<span foreground=\"" STATUSLINE_INACTIVE_COLOR "\">%s</span>", escaped);
         gtk_label_set_markup(GTK_LABEL(terminal->statusline), gray_markup);
         gtk_widget_set_tooltip_markup(terminal->statusline, gray_markup);
         g_free(gray_markup);
         g_free(escaped);
     }
-    g_string_free(markup, TRUE);
+    g_free(markup);
+}
+
+static gboolean terminal_statusline_update(LXTerminal * terminal)
+{
+    guint64 idle = 0;
+    guint64 total = 0;
+
+    if (terminal->statusline == NULL)
+        return FALSE;
+
+    if (!get_setting()->statusline_enabled)
+        return TRUE;
+
+    g_free(terminal->statusline_cached_body);
+    terminal->statusline_cached_body = terminal_statusline_build_body();
+
+    if (get_setting()->statusline_cpu && statusline_parse_proc_stat(&idle, &total))
+    {
+        terminal->statusline_cpu_idle = idle;
+        terminal->statusline_cpu_total = total;
+        terminal->statusline_has_cpu_sample = TRUE;
+        if (terminal->statusline_cpu_sample_timer == 0)
+            terminal->statusline_cpu_sample_timer = g_timeout_add(200, (GSourceFunc) terminal_statusline_finish_cpu_sample, terminal);
+        return TRUE;
+    }
+
+    terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, FALSE, 0.0));
     return TRUE;
+}
+
+static gboolean terminal_statusline_finish_cpu_sample(LXTerminal * terminal)
+{
+    guint64 idle = 0;
+    guint64 total = 0;
+    gdouble usage = 0.0;
+
+    terminal->statusline_cpu_sample_timer = 0;
+
+    if (terminal->statusline == NULL || !get_setting()->statusline_enabled)
+        return FALSE;
+
+    if (terminal->statusline_has_cpu_sample
+    && statusline_parse_proc_stat(&idle, &total)
+    && total > terminal->statusline_cpu_total)
+    {
+        guint64 idle_delta = idle - terminal->statusline_cpu_idle;
+        guint64 total_delta = total - terminal->statusline_cpu_total;
+        usage = total_delta > 0 ? (gdouble)(total_delta - idle_delta) * 100.0 / (gdouble) total_delta : 0.0;
+    }
+
+    terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, TRUE, usage));
+    return FALSE;
 }
 
 static void terminal_statusline_refresh_visibility(LXTerminal * terminal)
@@ -1429,7 +1465,13 @@ static void terminal_window_exit(LXTerminal * terminal, GObject * where_the_obje
         g_source_remove(terminal->statusline_timer);
         terminal->statusline_timer = 0;
     }
+    if (terminal->statusline_cpu_sample_timer != 0)
+    {
+        g_source_remove(terminal->statusline_cpu_sample_timer);
+        terminal->statusline_cpu_sample_timer = 0;
+    }
 
+    g_free(terminal->statusline_cached_body);
     g_free(terminal->profile);
 
     /* If last window, exit main loop. */
