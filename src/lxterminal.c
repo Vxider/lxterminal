@@ -285,9 +285,15 @@ static gboolean statusline_cpu_usage(LXTerminal * terminal, gdouble * usage)
     return TRUE;
 }
 
-static void statusline_append_colored_percent(GString * markup, const gchar * icon, gdouble value)
+static void statusline_append_percent(GString * markup, const gchar * icon, gdouble value, gboolean use_color)
 {
     const gchar * color = "#5fff00";
+
+    if (!use_color)
+    {
+        g_string_append_printf(markup, "%s%.0f%% ", icon, value);
+        return;
+    }
 
     if (value > 80.0)
         color = "#ff0000";
@@ -328,7 +334,7 @@ static gboolean statusline_read_meminfo_value(const gchar * name, guint64 * valu
     return result;
 }
 
-static gboolean statusline_memory_markup(GString * markup)
+static gboolean statusline_memory_markup(GString * markup, gboolean use_color)
 {
     guint64 mem_total = 0;
     guint64 mem_available = 0;
@@ -345,19 +351,29 @@ static gboolean statusline_memory_markup(GString * markup)
 
     mem_pct = (gdouble)(mem_total - mem_available) * 100.0 / (gdouble) mem_total;
     used_gib = (gdouble)(mem_total - mem_available) / 1024.0 / 1024.0;
-    if (mem_pct > 90.0)
-        color = "#ff0000";
-    else if (mem_pct > 40.0)
-        color = "#ffff00";
+    if (!use_color)
+    {
+        g_string_append_printf(markup, " %.1fG ", used_gib);
+    }
+    else
+    {
+        if (mem_pct > 90.0)
+            color = "#ff0000";
+        else if (mem_pct > 40.0)
+            color = "#ffff00";
 
-    g_string_append_printf(markup, "<span foreground=\"%s\"> %.1fG</span> ", color, used_gib);
+        g_string_append_printf(markup, "<span foreground=\"%s\"> %.1fG</span> ", color, used_gib);
+    }
 
     if (statusline_read_meminfo_value("SwapTotal", &swap_total)
     && statusline_read_meminfo_value("SwapFree", &swap_free)
     && swap_total > 0)
     {
         gdouble swap_used_gib = (gdouble)(swap_total - swap_free) / 1024.0 / 1024.0;
-        g_string_append_printf(markup, "<span foreground=\"#00afff\"> %.1fG</span> ", swap_used_gib);
+        if (use_color)
+            g_string_append_printf(markup, "<span foreground=\"#00afff\"> %.1fG</span> ", swap_used_gib);
+        else
+            g_string_append_printf(markup, " %.1fG ", swap_used_gib);
     }
 
     return TRUE;
@@ -459,9 +475,15 @@ static gboolean statusline_cpu_temp(gint * temp)
     return TRUE;
 }
 
-static void statusline_append_temp(GString * markup, gint temp)
+static void statusline_append_temp(GString * markup, gint temp, gboolean use_color)
 {
     const gchar * color = "#5fff00";
+
+    if (!use_color)
+    {
+        g_string_append_printf(markup, " %d ", temp);
+        return;
+    }
 
     if (temp > 90)
         color = "#ff0000";
@@ -510,7 +532,7 @@ static gchar * statusline_find_battery_dir(void)
     return NULL;
 }
 
-static gboolean statusline_battery_markup(GString * markup)
+static gboolean statusline_battery_markup(GString * markup, gboolean use_color)
 {
     gchar * battery_dir = statusline_find_battery_dir();
     gchar * status_path;
@@ -564,20 +586,27 @@ static gboolean statusline_battery_markup(GString * markup)
         state_icon = " ";
     }
 
-    if (charging)
-        color = capacity >= 95 ? "#5fff00" : "#00afff";
-    else if (capacity >= 80)
-        color = "#5fff00";
-    else if (capacity >= 60)
-        color = "#5fff00";
-    else if (capacity >= 40)
-        color = "#ffff00";
-    else if (capacity >= 20)
-        color = "#ffaf00";
+    if (!use_color)
+    {
+        g_string_append_printf(markup, "%s%s%d%% ", state_icon, icon, capacity);
+    }
     else
-        color = "#ff0000";
+    {
+        if (charging)
+            color = capacity >= 95 ? "#5fff00" : "#00afff";
+        else if (capacity >= 80)
+            color = "#5fff00";
+        else if (capacity >= 60)
+            color = "#5fff00";
+        else if (capacity >= 40)
+            color = "#ffff00";
+        else if (capacity >= 20)
+            color = "#ffaf00";
+        else
+            color = "#ff0000";
 
-    g_string_append_printf(markup, "<span foreground=\"%s\">%s%s%d%%</span> ", color, state_icon, icon, capacity);
+        g_string_append_printf(markup, "<span foreground=\"%s\">%s%s%d%%</span> ", color, state_icon, icon, capacity);
+    }
 
     g_free(status);
     g_free(capacity_path);
@@ -640,7 +669,7 @@ static gboolean statusline_gpu_usage(gdouble * usage)
     return result;
 }
 
-static void statusline_append_time(GString * markup)
+static void statusline_append_time(GString * markup, gboolean use_color)
 {
     time_t now = time(NULL);
     struct tm local_time;
@@ -648,7 +677,10 @@ static void statusline_append_time(GString * markup)
 
     localtime_r(&now, &local_time);
     strftime(buffer, sizeof(buffer), "%H:%M", &local_time);
-    g_string_append_printf(markup, "<span foreground=\"#e4e4e4\">%s</span>", buffer);
+    if (use_color)
+        g_string_append_printf(markup, "<span foreground=\"#e4e4e4\">%s</span>", buffer);
+    else
+        g_string_append(markup, buffer);
 }
 
 static gboolean terminal_statusline_update(LXTerminal * terminal)
@@ -656,28 +688,40 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
     GString * markup;
     gdouble value = 0.0;
     gint temp = 0;
+    gboolean use_color = get_setting()->statusline_color;
 
     if (terminal->statusline == NULL)
         return FALSE;
 
+    if (!get_setting()->statusline_enabled)
+        return TRUE;
+
     markup = g_string_new(NULL);
 
     if (statusline_cpu_usage(terminal, &value))
-        statusline_append_colored_percent(markup, " ", value);
+        statusline_append_percent(markup, " ", value, use_color);
 
     if (statusline_gpu_usage(&value))
-        statusline_append_colored_percent(markup, "", value);
+        statusline_append_percent(markup, "", value, use_color);
 
-    statusline_memory_markup(markup);
+    statusline_memory_markup(markup, use_color);
 
     if (statusline_cpu_temp(&temp))
-        statusline_append_temp(markup, temp);
+        statusline_append_temp(markup, temp, use_color);
 
-    statusline_battery_markup(markup);
-    statusline_append_time(markup);
+    statusline_battery_markup(markup, use_color);
+    statusline_append_time(markup, use_color);
 
-    gtk_label_set_markup(GTK_LABEL(terminal->statusline), markup->str);
-    gtk_widget_set_tooltip_markup(terminal->statusline, markup->str);
+    if (use_color)
+    {
+        gtk_label_set_markup(GTK_LABEL(terminal->statusline), markup->str);
+        gtk_widget_set_tooltip_markup(terminal->statusline, markup->str);
+    }
+    else
+    {
+        gtk_label_set_text(GTK_LABEL(terminal->statusline), markup->str);
+        gtk_widget_set_tooltip_text(terminal->statusline, markup->str);
+    }
     g_string_free(markup, TRUE);
     return TRUE;
 }
@@ -690,7 +734,7 @@ static void terminal_statusline_refresh_visibility(LXTerminal * terminal)
         return;
 
     tab_pos = gtk_notebook_get_tab_pos(GTK_NOTEBOOK(terminal->notebook));
-    if (tab_pos == GTK_POS_TOP || tab_pos == GTK_POS_BOTTOM)
+    if (get_setting()->statusline_enabled && (tab_pos == GTK_POS_TOP || tab_pos == GTK_POS_BOTTOM))
         gtk_widget_show(terminal->statusline);
     else
         gtk_widget_hide(terminal->statusline);
@@ -2331,6 +2375,7 @@ static void terminal_settings_apply(LXTerminal * terminal)
     /* Update tab position. */
     terminal->tab_position = terminal_tab_get_position_id(setting->tab_position);
     terminal_tab_set_position(terminal->notebook, terminal->tab_position);
+    terminal_statusline_update(terminal);
     terminal_statusline_refresh_visibility(terminal);
 
     /* Update menu accelerators. */

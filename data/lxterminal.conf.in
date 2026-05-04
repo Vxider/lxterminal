@@ -2,3 +2,5 @@
 fontname=Monospace 10
 selchars=-A-Za-z0-9,./?%&#:_
 scrollback=1000
+statuslineenabled=true
+statuslinecolor=true

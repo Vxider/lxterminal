@@ -234,6 +234,8 @@ void save_setting(const char *profile)
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, HIDE_MENUBAR, setting->hide_menu_bar);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, HIDE_CLOSE_BUTTON, setting->hide_close_button);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, HIDE_POINTER, setting->hide_pointer);
+    g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_ENABLED, setting->statusline_enabled);
+    g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_COLOR, setting->statusline_color);
     g_key_file_set_string(setting->keyfile, GENERAL_GROUP, SEL_CHARS, setting->word_selection_characters);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, DISABLE_F10, setting->disable_f10);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, DISABLE_ALT, setting->disable_alt);
@@ -363,6 +365,8 @@ Setting * load_setting(const char * profile)
 
     /* Allocate structure. */
     setting = g_slice_new0(Setting);
+    setting->statusline_enabled = TRUE;
+    setting->statusline_color = TRUE;
 
     /* Initialize nonzero integer values to defaults. */
 #if VTE_CHECK_VERSION (0, 38, 0)
@@ -462,6 +466,16 @@ color_preset_does_not_exist:
         setting->hide_menu_bar = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, HIDE_MENUBAR, NULL);
         setting->hide_close_button = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, HIDE_CLOSE_BUTTON, NULL);
         setting->hide_pointer = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, HIDE_POINTER, NULL);
+        g_clear_error(&error);
+        setting->statusline_enabled = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_ENABLED, &error);
+        if (error && (error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND)) {
+            setting->statusline_enabled = TRUE;
+        }
+        g_clear_error(&error);
+        setting->statusline_color = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_COLOR, &error);
+        if (error && (error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND)) {
+            setting->statusline_color = TRUE;
+        }
         setting->word_selection_characters = g_key_file_get_string(setting->keyfile, GENERAL_GROUP, SEL_CHARS, NULL);
         setting->disable_f10 = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, DISABLE_F10, NULL);
         setting->disable_alt = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, DISABLE_ALT, NULL);
@@ -573,4 +587,3 @@ color_preset_does_not_exist:
     //print_setting();
     return setting;
 }
-
