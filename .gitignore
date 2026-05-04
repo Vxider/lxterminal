@@ -12,6 +12,7 @@ ltmain.sh
 */*/*.o
 */*/*/*.o
 */.deps/
+.deps/
 */*/.deps/
 */*/*/.deps/
 */.libs/
