@@ -112,6 +112,7 @@ static void terminal_initialize_menu_shortcuts(Setting * setting);
 
 /* Menu accelerator saved when the user disables it. */
 static char * saved_menu_accelerator = NULL;
+#define STATUSLINE_INACTIVE_COLOR "#8a8a8a"
 /* Help when user enters an invalid command. */
 static gchar usage_display[] = {
     "Usage:\n"
@@ -338,8 +339,6 @@ static gboolean statusline_memory_markup(GString * markup, gboolean use_color)
 {
     guint64 mem_total = 0;
     guint64 mem_available = 0;
-    guint64 swap_total = 0;
-    guint64 swap_free = 0;
     gdouble mem_pct;
     gdouble used_gib;
     const gchar * color = "#5fff00";
@@ -365,6 +364,14 @@ static gboolean statusline_memory_markup(GString * markup, gboolean use_color)
         g_string_append_printf(markup, "<span foreground=\"%s\"> %.1fG</span> ", color, used_gib);
     }
 
+    return TRUE;
+}
+
+static gboolean statusline_swap_markup(GString * markup, gboolean use_color)
+{
+    guint64 swap_total = 0;
+    guint64 swap_free = 0;
+
     if (statusline_read_meminfo_value("SwapTotal", &swap_total)
     && statusline_read_meminfo_value("SwapFree", &swap_free)
     && swap_total > 0)
@@ -374,9 +381,10 @@ static gboolean statusline_memory_markup(GString * markup, gboolean use_color)
             g_string_append_printf(markup, "<span foreground=\"#00afff\"> %.1fG</span> ", swap_used_gib);
         else
             g_string_append_printf(markup, " %.1fG ", swap_used_gib);
+        return TRUE;
     }
 
-    return TRUE;
+    return FALSE;
 }
 
 static gboolean statusline_read_int_file(const gchar * path, gint * value)
@@ -685,32 +693,40 @@ static void statusline_append_time(GString * markup, gboolean use_color)
 
 static gboolean terminal_statusline_update(LXTerminal * terminal)
 {
+    Setting * setting = get_setting();
     GString * markup;
     gdouble value = 0.0;
     gint temp = 0;
-    gboolean use_color = get_setting()->statusline_color;
+    gboolean use_color = setting->statusline_color;
 
     if (terminal->statusline == NULL)
         return FALSE;
 
-    if (!get_setting()->statusline_enabled)
+    if (!setting->statusline_enabled)
         return TRUE;
 
     markup = g_string_new(NULL);
 
-    if (statusline_cpu_usage(terminal, &value))
+    if (setting->statusline_cpu && statusline_cpu_usage(terminal, &value))
         statusline_append_percent(markup, " ", value, use_color);
 
-    if (statusline_gpu_usage(&value))
+    if (setting->statusline_gpu && statusline_gpu_usage(&value))
         statusline_append_percent(markup, "", value, use_color);
 
-    statusline_memory_markup(markup, use_color);
+    if (setting->statusline_memory)
+        statusline_memory_markup(markup, use_color);
 
-    if (statusline_cpu_temp(&temp))
+    if (setting->statusline_swap)
+        statusline_swap_markup(markup, use_color);
+
+    if (setting->statusline_temperature && statusline_cpu_temp(&temp))
         statusline_append_temp(markup, temp, use_color);
 
-    statusline_battery_markup(markup, use_color);
-    statusline_append_time(markup, use_color);
+    if (setting->statusline_battery)
+        statusline_battery_markup(markup, use_color);
+
+    if (setting->statusline_time)
+        statusline_append_time(markup, use_color);
 
     if (use_color)
     {
@@ -719,8 +735,12 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
     }
     else
     {
-        gtk_label_set_text(GTK_LABEL(terminal->statusline), markup->str);
-        gtk_widget_set_tooltip_text(terminal->statusline, markup->str);
+        gchar * escaped = g_markup_escape_text(markup->str, -1);
+        gchar * gray_markup = g_strdup_printf("<span foreground=\"" STATUSLINE_INACTIVE_COLOR "\">%s</span>", escaped);
+        gtk_label_set_markup(GTK_LABEL(terminal->statusline), gray_markup);
+        gtk_widget_set_tooltip_markup(terminal->statusline, gray_markup);
+        g_free(gray_markup);
+        g_free(escaped);
     }
     g_string_free(markup, TRUE);
     return TRUE;

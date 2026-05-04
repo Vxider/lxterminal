@@ -445,6 +445,22 @@ void terminal_preferences_dialog(GtkAction * action, LXTerminal * terminal)
     g_signal_connect(G_OBJECT(w), "toggled",
         G_CALLBACK(preferences_dialog_generic_toggled_event), &setting->statusline_color);
 
+#define PREF_SETUP_STATUSLINE_TOGGLE(OBJ, VAR) \
+    w = GTK_WIDGET(gtk_builder_get_object(builder, OBJ)); \
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(w), setting->VAR); \
+    g_signal_connect(G_OBJECT(w), "toggled", \
+        G_CALLBACK(preferences_dialog_generic_toggled_event), &setting->VAR);
+
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_cpu", statusline_cpu)
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_gpu", statusline_gpu)
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_memory", statusline_memory)
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_swap", statusline_swap)
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_temperature", statusline_temperature)
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_battery", statusline_battery)
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_time", statusline_time)
+
+#undef PREF_SETUP_STATUSLINE_TOGGLE
+
     w = GTK_WIDGET(gtk_builder_get_object(builder, "select_by_word"));
     gtk_entry_set_text(GTK_ENTRY(w), setting->word_selection_characters);
     g_signal_connect(G_OBJECT(w), "focus-out-event", 
