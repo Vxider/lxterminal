@@ -32,6 +32,8 @@
 #include <langinfo.h>
 #include <locale.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <unistd.h>
 #include <pwd.h>
 
 #if VTE_CHECK_VERSION (0, 46, 0)
@@ -50,6 +52,9 @@ static void terminal_save_size(LXTerminal * terminal);
 static void terminal_tab_set_position(GtkWidget * notebook, gint tab_position);
 static gchar * terminal_get_current_dir(LXTerminal * terminal);
 static const gchar * terminal_get_preferred_shell();
+static void terminal_statusline_initialize(LXTerminal * terminal);
+static gboolean terminal_statusline_update(LXTerminal * terminal);
+static void terminal_statusline_refresh_visibility(LXTerminal * terminal);
 
 /* Menu and accelerator event handlers. */
 static void terminal_initialize_switch_tab_accelerator(Term * term);
@@ -107,7 +112,6 @@ static void terminal_initialize_menu_shortcuts(Setting * setting);
 
 /* Menu accelerator saved when the user disables it. */
 static char * saved_menu_accelerator = NULL;
-
 /* Help when user enters an invalid command. */
 static gchar usage_display[] = {
     "Usage:\n"
@@ -219,6 +223,496 @@ static void terminal_tab_set_position(GtkWidget * notebook, gint tab_position)
             gtk_notebook_set_tab_pos(GTK_NOTEBOOK(notebook), GTK_POS_RIGHT);
             break;
     }
+}
+
+static gboolean statusline_parse_proc_stat(guint64 * idle_value, guint64 * total_value)
+{
+    gchar * contents = NULL;
+    gboolean result = FALSE;
+
+    if (g_file_get_contents("/proc/stat", &contents, NULL, NULL))
+    {
+        gchar ** lines = g_strsplit(contents, "\n", 2);
+        if (lines[0] != NULL)
+        {
+            gchar cpu[16];
+            guint64 user = 0;
+            guint64 nice = 0;
+            guint64 system = 0;
+            guint64 idle = 0;
+            guint64 iowait = 0;
+            guint64 irq = 0;
+            guint64 softirq = 0;
+            guint64 steal = 0;
+
+            if (sscanf(lines[0], "%15s %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT " %" G_GUINT64_FORMAT,
+                       cpu, &user, &nice, &system, &idle, &iowait, &irq, &softirq, &steal) >= 5)
+            {
+                *idle_value = idle + iowait;
+                *total_value = user + nice + system + idle + iowait + irq + softirq + steal;
+                result = TRUE;
+            }
+        }
+        g_strfreev(lines);
+        g_free(contents);
+    }
+
+    return result;
+}
+
+static gboolean statusline_cpu_usage(LXTerminal * terminal, gdouble * usage)
+{
+    guint64 idle = 0;
+    guint64 total = 0;
+
+    if (!statusline_parse_proc_stat(&idle, &total))
+        return FALSE;
+
+    if (terminal->statusline_has_cpu_sample && total > terminal->statusline_cpu_total)
+    {
+        guint64 idle_delta = idle - terminal->statusline_cpu_idle;
+        guint64 total_delta = total - terminal->statusline_cpu_total;
+        *usage = total_delta > 0 ? (gdouble)(total_delta - idle_delta) * 100.0 / (gdouble) total_delta : 0.0;
+    }
+    else
+    {
+        *usage = 0.0;
+    }
+
+    terminal->statusline_cpu_idle = idle;
+    terminal->statusline_cpu_total = total;
+    terminal->statusline_has_cpu_sample = TRUE;
+    return TRUE;
+}
+
+static void statusline_append_colored_percent(GString * markup, const gchar * icon, gdouble value)
+{
+    const gchar * color = "#5fff00";
+
+    if (value > 80.0)
+        color = "#ff0000";
+    else if (value > 60.0)
+        color = "#ff0000";
+    else if (value > 40.0)
+        color = "#ffff00";
+
+    g_string_append_printf(markup, "<span foreground=\"%s\">%s%.0f%%</span> ", color, icon, value);
+}
+
+static gboolean statusline_read_meminfo_value(const gchar * name, guint64 * value)
+{
+    gchar * contents = NULL;
+    gboolean result = FALSE;
+
+    if (g_file_get_contents("/proc/meminfo", &contents, NULL, NULL))
+    {
+        gchar ** lines = g_strsplit(contents, "\n", -1);
+        guint i;
+
+        for (i = 0; lines[i] != NULL; i++)
+        {
+            guint64 parsed = 0;
+            if (g_str_has_prefix(lines[i], name)
+            && sscanf(lines[i] + strlen(name), ": %" G_GUINT64_FORMAT " kB", &parsed) == 1)
+            {
+                *value = parsed;
+                result = TRUE;
+                break;
+            }
+        }
+
+        g_strfreev(lines);
+        g_free(contents);
+    }
+
+    return result;
+}
+
+static gboolean statusline_memory_markup(GString * markup)
+{
+    guint64 mem_total = 0;
+    guint64 mem_available = 0;
+    guint64 swap_total = 0;
+    guint64 swap_free = 0;
+    gdouble mem_pct;
+    gdouble used_gib;
+    const gchar * color = "#5fff00";
+
+    if (!statusline_read_meminfo_value("MemTotal", &mem_total)
+    || !statusline_read_meminfo_value("MemAvailable", &mem_available)
+    || mem_total == 0)
+        return FALSE;
+
+    mem_pct = (gdouble)(mem_total - mem_available) * 100.0 / (gdouble) mem_total;
+    used_gib = (gdouble)(mem_total - mem_available) / 1024.0 / 1024.0;
+    if (mem_pct > 90.0)
+        color = "#ff0000";
+    else if (mem_pct > 40.0)
+        color = "#ffff00";
+
+    g_string_append_printf(markup, "<span foreground=\"%s\"> %.1fG</span> ", color, used_gib);
+
+    if (statusline_read_meminfo_value("SwapTotal", &swap_total)
+    && statusline_read_meminfo_value("SwapFree", &swap_free)
+    && swap_total > 0)
+    {
+        gdouble swap_used_gib = (gdouble)(swap_total - swap_free) / 1024.0 / 1024.0;
+        g_string_append_printf(markup, "<span foreground=\"#00afff\"> %.1fG</span> ", swap_used_gib);
+    }
+
+    return TRUE;
+}
+
+static gboolean statusline_read_int_file(const gchar * path, gint * value)
+{
+    gchar * contents = NULL;
+    gboolean result = FALSE;
+
+    if (g_file_get_contents(path, &contents, NULL, NULL))
+    {
+        gchar * end = NULL;
+        gint64 parsed = g_ascii_strtoll(contents, &end, 10);
+        if (end != contents)
+        {
+            *value = (gint) parsed;
+            result = TRUE;
+        }
+        g_free(contents);
+    }
+
+    return result;
+}
+
+static gboolean statusline_cpu_temp(gint * temp)
+{
+    GDir * dir = g_dir_open("/sys/class/thermal", 0, NULL);
+    const gchar * name;
+    gint fallback = 0;
+    gint preferred = 0;
+
+    if (dir == NULL)
+        return FALSE;
+
+    while ((name = g_dir_read_name(dir)) != NULL)
+    {
+        gchar * type_path;
+        gchar * temp_path;
+        gchar * type = NULL;
+        gint raw_temp = 0;
+        gint normalized;
+        gchar * lower;
+
+        if (!g_str_has_prefix(name, "thermal_zone"))
+            continue;
+
+        type_path = g_build_filename("/sys/class/thermal", name, "type", NULL);
+        temp_path = g_build_filename("/sys/class/thermal", name, "temp", NULL);
+
+        if (!statusline_read_int_file(temp_path, &raw_temp))
+        {
+            g_free(type_path);
+            g_free(temp_path);
+            continue;
+        }
+
+        normalized = raw_temp > 1000 ? raw_temp / 1000 : raw_temp;
+        if (normalized < 1 || normalized > 150)
+        {
+            g_free(type_path);
+            g_free(temp_path);
+            continue;
+        }
+
+        if (normalized > fallback)
+            fallback = normalized;
+
+        if (g_file_get_contents(type_path, &type, NULL, NULL))
+        {
+            lower = g_ascii_strdown(type, -1);
+            if ((strstr(lower, "cpu") != NULL
+              || strstr(lower, "pkg") != NULL
+              || strstr(lower, "package") != NULL
+              || strstr(lower, "soc") != NULL
+              || strstr(lower, "x86_pkg_temp") != NULL
+              || strstr(lower, "acpitz") != NULL)
+            && normalized > preferred)
+            {
+                preferred = normalized;
+            }
+            g_free(lower);
+            g_free(type);
+        }
+
+        g_free(type_path);
+        g_free(temp_path);
+    }
+
+    g_dir_close(dir);
+
+    if (preferred > 0)
+        *temp = preferred;
+    else if (fallback > 0)
+        *temp = fallback;
+    else
+        return FALSE;
+
+    return TRUE;
+}
+
+static void statusline_append_temp(GString * markup, gint temp)
+{
+    const gchar * color = "#5fff00";
+
+    if (temp > 90)
+        color = "#ff0000";
+    else if (temp > 80)
+        color = "#ff0000";
+    else if (temp > 70)
+        color = "#ffff00";
+
+    g_string_append_printf(markup, "<span foreground=\"%s\"> %d</span> ", color, temp);
+}
+
+static gchar * statusline_find_battery_dir(void)
+{
+    GDir * dir = g_dir_open("/sys/class/power_supply", 0, NULL);
+    const gchar * name;
+
+    if (dir == NULL)
+        return NULL;
+
+    while ((name = g_dir_read_name(dir)) != NULL)
+    {
+        gchar * path = g_build_filename("/sys/class/power_supply", name, NULL);
+        gchar * type_path = g_build_filename(path, "type", NULL);
+        gchar * type = NULL;
+        gboolean is_battery = FALSE;
+
+        if (strstr(name, "BAT") != NULL || strstr(name, "battery") != NULL)
+            is_battery = TRUE;
+        else if (g_file_get_contents(type_path, &type, NULL, NULL))
+        {
+            g_strstrip(type);
+            is_battery = g_ascii_strcasecmp(type, "Battery") == 0;
+            g_free(type);
+        }
+
+        g_free(type_path);
+        if (is_battery)
+        {
+            g_dir_close(dir);
+            return path;
+        }
+        g_free(path);
+    }
+
+    g_dir_close(dir);
+    return NULL;
+}
+
+static gboolean statusline_battery_markup(GString * markup)
+{
+    gchar * battery_dir = statusline_find_battery_dir();
+    gchar * status_path;
+    gchar * capacity_path;
+    gchar * status = NULL;
+    gint capacity = 0;
+    const gchar * icon;
+    const gchar * state_icon = "";
+    const gchar * color;
+    gboolean charging;
+
+    if (battery_dir == NULL)
+        return FALSE;
+
+    status_path = g_build_filename(battery_dir, "status", NULL);
+    capacity_path = g_build_filename(battery_dir, "capacity", NULL);
+    if (g_file_get_contents(status_path, &status, NULL, NULL))
+        g_strstrip(status);
+
+    if (!statusline_read_int_file(capacity_path, &capacity))
+    {
+        g_free(status);
+        g_free(capacity_path);
+        g_free(status_path);
+        g_free(battery_dir);
+        return FALSE;
+    }
+
+    if (capacity >= 80)
+        icon = " ";
+    else if (capacity >= 60)
+        icon = " ";
+    else if (capacity >= 40)
+        icon = " ";
+    else if (capacity >= 20)
+        icon = " ";
+    else
+        icon = " ";
+
+    charging = status != NULL && (g_ascii_strcasecmp(status, "Charging") == 0
+                               || g_ascii_strcasecmp(status, "Full") == 0
+                               || g_ascii_strcasecmp(status, "Not charging") == 0);
+    if (status != NULL && g_ascii_strcasecmp(status, "Charging") == 0)
+    {
+        icon = "";
+        state_icon = " ";
+    }
+    else if (status != NULL && (g_ascii_strcasecmp(status, "Full") == 0
+                             || g_ascii_strcasecmp(status, "Not charging") == 0))
+    {
+        state_icon = " ";
+    }
+
+    if (charging)
+        color = capacity >= 95 ? "#5fff00" : "#00afff";
+    else if (capacity >= 80)
+        color = "#5fff00";
+    else if (capacity >= 60)
+        color = "#5fff00";
+    else if (capacity >= 40)
+        color = "#ffff00";
+    else if (capacity >= 20)
+        color = "#ffaf00";
+    else
+        color = "#ff0000";
+
+    g_string_append_printf(markup, "<span foreground=\"%s\">%s%s%d%%</span> ", color, state_icon, icon, capacity);
+
+    g_free(status);
+    g_free(capacity_path);
+    g_free(status_path);
+    g_free(battery_dir);
+    return TRUE;
+}
+
+static gboolean statusline_gpu_usage(gdouble * usage)
+{
+    gchar * output = NULL;
+    gchar * error = NULL;
+    gchar ** lines;
+    guint i;
+    gdouble sum = 0.0;
+    guint count = 0;
+    gboolean result = FALSE;
+
+    if (!g_spawn_command_line_sync("nvtop --snapshot", &output, &error, NULL, NULL))
+    {
+        g_free(output);
+        g_free(error);
+        return FALSE;
+    }
+
+    lines = g_strsplit(output != NULL ? output : "", "\n", -1);
+    for (i = 0; lines[i] != NULL; i++)
+    {
+        gchar * match = strstr(lines[i], "\"gpu_util\":");
+        gchar * percent;
+        gchar * end;
+        gdouble value;
+
+        if (match == NULL)
+            continue;
+
+        percent = strchr(match, '%');
+        if (percent == NULL)
+            continue;
+
+        while (percent > match && (g_ascii_isdigit((guchar) percent[-1]) || percent[-1] == '.'))
+            percent--;
+        value = g_ascii_strtod(percent, &end);
+        if (end != percent)
+        {
+            sum += value;
+            count++;
+        }
+    }
+
+    if (count > 0)
+    {
+        *usage = sum / (gdouble) count;
+        result = TRUE;
+    }
+
+    g_strfreev(lines);
+    g_free(output);
+    g_free(error);
+    return result;
+}
+
+static void statusline_append_time(GString * markup)
+{
+    time_t now = time(NULL);
+    struct tm local_time;
+    gchar buffer[16];
+
+    localtime_r(&now, &local_time);
+    strftime(buffer, sizeof(buffer), "%H:%M", &local_time);
+    g_string_append_printf(markup, "<span foreground=\"#e4e4e4\">%s</span>", buffer);
+}
+
+static gboolean terminal_statusline_update(LXTerminal * terminal)
+{
+    GString * markup;
+    gdouble value = 0.0;
+    gint temp = 0;
+
+    if (terminal->statusline == NULL)
+        return FALSE;
+
+    markup = g_string_new(NULL);
+
+    if (statusline_cpu_usage(terminal, &value))
+        statusline_append_colored_percent(markup, " ", value);
+
+    if (statusline_gpu_usage(&value))
+        statusline_append_colored_percent(markup, "", value);
+
+    statusline_memory_markup(markup);
+
+    if (statusline_cpu_temp(&temp))
+        statusline_append_temp(markup, temp);
+
+    statusline_battery_markup(markup);
+    statusline_append_time(markup);
+
+    gtk_label_set_markup(GTK_LABEL(terminal->statusline), markup->str);
+    gtk_widget_set_tooltip_markup(terminal->statusline, markup->str);
+    g_string_free(markup, TRUE);
+    return TRUE;
+}
+
+static void terminal_statusline_refresh_visibility(LXTerminal * terminal)
+{
+    GtkPositionType tab_pos;
+
+    if (terminal->statusline == NULL)
+        return;
+
+    tab_pos = gtk_notebook_get_tab_pos(GTK_NOTEBOOK(terminal->notebook));
+    if (tab_pos == GTK_POS_TOP || tab_pos == GTK_POS_BOTTOM)
+        gtk_widget_show(terminal->statusline);
+    else
+        gtk_widget_hide(terminal->statusline);
+}
+
+static void terminal_statusline_initialize(LXTerminal * terminal)
+{
+    terminal->statusline = gtk_label_new("");
+    gtk_label_set_use_markup(GTK_LABEL(terminal->statusline), TRUE);
+    gtk_widget_set_name(terminal->statusline, "lxterminal-statusline");
+
+#if GTK_CHECK_VERSION(3, 0, 0)
+    gtk_widget_set_halign(terminal->statusline, GTK_ALIGN_END);
+    gtk_widget_set_valign(terminal->statusline, GTK_ALIGN_CENTER);
+#else
+    gtk_misc_set_alignment(GTK_MISC(terminal->statusline), 1.0, 0.5);
+#endif
+
+    gtk_notebook_set_action_widget(GTK_NOTEBOOK(terminal->notebook), terminal->statusline, GTK_PACK_END);
+    terminal_statusline_update(terminal);
+    terminal_statusline_refresh_visibility(terminal);
+    terminal->statusline_timer = g_timeout_add_seconds(5, (GSourceFunc) terminal_statusline_update, terminal);
 }
 
 static gchar * terminal_get_current_dir(LXTerminal * terminal)
@@ -865,6 +1359,12 @@ static gboolean terminal_close_window_confirmation_dialog(LXTerminal * terminal)
 static void terminal_window_exit(LXTerminal * terminal, GObject * where_the_object_was)
 {
     LXTermWindow * lxtermwin = terminal->parent;
+
+    if (terminal->statusline_timer != 0)
+    {
+        g_source_remove(terminal->statusline_timer);
+        terminal->statusline_timer = 0;
+    }
 
     g_free(terminal->profile);
 
@@ -1684,6 +2184,7 @@ LXTerminal * lxterminal_initialize(LXTermWindow * lxtermwin, CommandArguments * 
     gtk_notebook_set_show_tabs(GTK_NOTEBOOK(terminal->notebook), FALSE);
     gtk_notebook_set_show_border(GTK_NOTEBOOK(terminal->notebook), FALSE);
     gtk_box_pack_start(GTK_BOX(terminal->box), terminal->notebook, TRUE, TRUE, 0);
+    terminal_statusline_initialize(terminal);
 
     /* Initialize tab position. */
     terminal->tab_position = terminal_tab_get_position_id(setting->tab_position);
@@ -1830,6 +2331,7 @@ static void terminal_settings_apply(LXTerminal * terminal)
     /* Update tab position. */
     terminal->tab_position = terminal_tab_get_position_id(setting->tab_position);
     terminal_tab_set_position(terminal->notebook, terminal->tab_position);
+    terminal_statusline_refresh_visibility(terminal);
 
     /* Update menu accelerators. */
     terminal_menu_accelerator_update(terminal);
