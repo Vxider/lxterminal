@@ -46,10 +46,9 @@ typedef struct _lxterminal {
     GtkWidget * statusline;         /* System monitor label on the right side of the tab bar */
     guint statusline_timer;         /* Periodic refresh source for statusline */
     guint statusline_cpu_timer;     /* Faster CPU-only refresh source for statusline */
-    guint statusline_cpu_sample_timer;  /* Pending short CPU sample source for statusline */
-    guint64 statusline_cpu_idle;        /* First idle CPU counter for statusline */
-    guint64 statusline_cpu_total;       /* First total CPU counter for statusline */
-    gboolean statusline_has_cpu_sample; /* True after first CPU sample */
+    guint64 statusline_cpu_idle;        /* Previous idle CPU counter for statusline */
+    guint64 statusline_cpu_total;       /* Previous total CPU counter for statusline */
+    gboolean statusline_has_cpu_sample; /* True after previous CPU sample */
     gchar * statusline_cached_body;     /* Last non-CPU statusline text */
     GPtrArray * terms;              /* Array of pointers to Term structures */
 //    Setting * setting;                /* A copy of parent->setting */
