@@ -54,8 +54,7 @@ static gchar * terminal_get_current_dir(LXTerminal * terminal);
 static const gchar * terminal_get_preferred_shell();
 static void terminal_statusline_initialize(LXTerminal * terminal);
 static gboolean terminal_statusline_update(LXTerminal * terminal);
-static gboolean terminal_statusline_start_cpu_sample(LXTerminal * terminal);
-static gboolean terminal_statusline_finish_cpu_sample(LXTerminal * terminal);
+static gboolean terminal_statusline_update_cpu(LXTerminal * terminal);
 static void terminal_statusline_refresh_visibility(LXTerminal * terminal);
 
 /* Menu and accelerator event handlers. */
@@ -752,10 +751,12 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
     return TRUE;
 }
 
-static gboolean terminal_statusline_start_cpu_sample(LXTerminal * terminal)
+static gboolean terminal_statusline_update_cpu(LXTerminal * terminal)
 {
     guint64 idle = 0;
     guint64 total = 0;
+    gdouble usage = 0.0;
+    gboolean include_cpu = FALSE;
 
     if (terminal->statusline == NULL)
         return FALSE;
@@ -765,39 +766,21 @@ static gboolean terminal_statusline_start_cpu_sample(LXTerminal * terminal)
 
     if (get_setting()->statusline_cpu && statusline_parse_proc_stat(&idle, &total))
     {
+        if (terminal->statusline_has_cpu_sample && total > terminal->statusline_cpu_total)
+        {
+            guint64 idle_delta = idle - terminal->statusline_cpu_idle;
+            guint64 total_delta = total - terminal->statusline_cpu_total;
+            usage = total_delta > 0 ? (gdouble)(total_delta - idle_delta) * 100.0 / (gdouble) total_delta : 0.0;
+            include_cpu = TRUE;
+        }
+
         terminal->statusline_cpu_idle = idle;
         terminal->statusline_cpu_total = total;
         terminal->statusline_has_cpu_sample = TRUE;
-        if (terminal->statusline_cpu_sample_timer == 0)
-            terminal->statusline_cpu_sample_timer = g_timeout_add(200, (GSourceFunc) terminal_statusline_finish_cpu_sample, terminal);
-        return TRUE;
     }
 
+    terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, include_cpu, usage));
     return TRUE;
-}
-
-static gboolean terminal_statusline_finish_cpu_sample(LXTerminal * terminal)
-{
-    guint64 idle = 0;
-    guint64 total = 0;
-    gdouble usage = 0.0;
-
-    terminal->statusline_cpu_sample_timer = 0;
-
-    if (terminal->statusline == NULL || !get_setting()->statusline_enabled)
-        return FALSE;
-
-    if (terminal->statusline_has_cpu_sample
-    && statusline_parse_proc_stat(&idle, &total)
-    && total > terminal->statusline_cpu_total)
-    {
-        guint64 idle_delta = idle - terminal->statusline_cpu_idle;
-        guint64 total_delta = total - terminal->statusline_cpu_total;
-        usage = total_delta > 0 ? (gdouble)(total_delta - idle_delta) * 100.0 / (gdouble) total_delta : 0.0;
-    }
-
-    terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, TRUE, usage));
-    return FALSE;
 }
 
 static void terminal_statusline_refresh_visibility(LXTerminal * terminal)
@@ -829,10 +812,10 @@ static void terminal_statusline_initialize(LXTerminal * terminal)
 
     gtk_notebook_set_action_widget(GTK_NOTEBOOK(terminal->notebook), terminal->statusline, GTK_PACK_END);
     terminal_statusline_update(terminal);
-    terminal_statusline_start_cpu_sample(terminal);
+    terminal_statusline_update_cpu(terminal);
     terminal_statusline_refresh_visibility(terminal);
     terminal->statusline_timer = g_timeout_add_seconds(5, (GSourceFunc) terminal_statusline_update, terminal);
-    terminal->statusline_cpu_timer = g_timeout_add_seconds(1, (GSourceFunc) terminal_statusline_start_cpu_sample, terminal);
+    terminal->statusline_cpu_timer = g_timeout_add_seconds(3, (GSourceFunc) terminal_statusline_update_cpu, terminal);
 }
 
 static gchar * terminal_get_current_dir(LXTerminal * terminal)
@@ -1490,12 +1473,6 @@ static void terminal_window_exit(LXTerminal * terminal, GObject * where_the_obje
         g_source_remove(terminal->statusline_cpu_timer);
         terminal->statusline_cpu_timer = 0;
     }
-    if (terminal->statusline_cpu_sample_timer != 0)
-    {
-        g_source_remove(terminal->statusline_cpu_sample_timer);
-        terminal->statusline_cpu_sample_timer = 0;
-    }
-
     g_free(terminal->statusline_cached_body);
     g_free(terminal->profile);
 
