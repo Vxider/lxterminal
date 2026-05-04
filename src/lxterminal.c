@@ -54,6 +54,7 @@ static gchar * terminal_get_current_dir(LXTerminal * terminal);
 static const gchar * terminal_get_preferred_shell();
 static void terminal_statusline_initialize(LXTerminal * terminal);
 static gboolean terminal_statusline_update(LXTerminal * terminal);
+static gboolean terminal_statusline_start_cpu_sample(LXTerminal * terminal);
 static gboolean terminal_statusline_finish_cpu_sample(LXTerminal * terminal);
 static void terminal_statusline_refresh_visibility(LXTerminal * terminal);
 
@@ -735,9 +736,6 @@ static void terminal_statusline_set_markup(LXTerminal * terminal, gchar * markup
 
 static gboolean terminal_statusline_update(LXTerminal * terminal)
 {
-    guint64 idle = 0;
-    guint64 total = 0;
-
     if (terminal->statusline == NULL)
         return FALSE;
 
@@ -746,6 +744,23 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
 
     g_free(terminal->statusline_cached_body);
     terminal->statusline_cached_body = terminal_statusline_build_body();
+
+    if (!get_setting()->statusline_cpu)
+        terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, FALSE, 0.0));
+
+    return TRUE;
+}
+
+static gboolean terminal_statusline_start_cpu_sample(LXTerminal * terminal)
+{
+    guint64 idle = 0;
+    guint64 total = 0;
+
+    if (terminal->statusline == NULL)
+        return FALSE;
+
+    if (!get_setting()->statusline_enabled)
+        return TRUE;
 
     if (get_setting()->statusline_cpu && statusline_parse_proc_stat(&idle, &total))
     {
@@ -757,7 +772,6 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
         return TRUE;
     }
 
-    terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, FALSE, 0.0));
     return TRUE;
 }
 
@@ -814,8 +828,10 @@ static void terminal_statusline_initialize(LXTerminal * terminal)
 
     gtk_notebook_set_action_widget(GTK_NOTEBOOK(terminal->notebook), terminal->statusline, GTK_PACK_END);
     terminal_statusline_update(terminal);
+    terminal_statusline_start_cpu_sample(terminal);
     terminal_statusline_refresh_visibility(terminal);
     terminal->statusline_timer = g_timeout_add_seconds(5, (GSourceFunc) terminal_statusline_update, terminal);
+    terminal->statusline_cpu_timer = g_timeout_add_seconds(1, (GSourceFunc) terminal_statusline_start_cpu_sample, terminal);
 }
 
 static gchar * terminal_get_current_dir(LXTerminal * terminal)
@@ -1467,6 +1483,11 @@ static void terminal_window_exit(LXTerminal * terminal, GObject * where_the_obje
     {
         g_source_remove(terminal->statusline_timer);
         terminal->statusline_timer = 0;
+    }
+    if (terminal->statusline_cpu_timer != 0)
+    {
+        g_source_remove(terminal->statusline_cpu_timer);
+        terminal->statusline_cpu_timer = 0;
     }
     if (terminal->statusline_cpu_sample_timer != 0)
     {

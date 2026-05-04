@@ -45,6 +45,7 @@ typedef struct _lxterminal {
     GtkWidget * notebook;           /* Notebook, child of vertical box */
     GtkWidget * statusline;         /* System monitor label on the right side of the tab bar */
     guint statusline_timer;         /* Periodic refresh source for statusline */
+    guint statusline_cpu_timer;     /* Faster CPU-only refresh source for statusline */
     guint statusline_cpu_sample_timer;  /* Pending short CPU sample source for statusline */
     guint64 statusline_cpu_idle;        /* First idle CPU counter for statusline */
     guint64 statusline_cpu_total;       /* First total CPU counter for statusline */
