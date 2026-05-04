@@ -43,6 +43,15 @@
 #define HIDE_MENUBAR "hidemenubar"
 #define HIDE_CLOSE_BUTTON "hideclosebutton"
 #define HIDE_POINTER "hidepointer"
+#define STATUSLINE_ENABLED "statuslineenabled"
+#define STATUSLINE_COLOR "statuslinecolor"
+#define STATUSLINE_CPU "statuslinecpu"
+#define STATUSLINE_GPU "statuslinegpu"
+#define STATUSLINE_MEMORY "statuslinememory"
+#define STATUSLINE_SWAP "statuslineswap"
+#define STATUSLINE_TEMPERATURE "statuslinetemperature"
+#define STATUSLINE_BATTERY "statuslinebattery"
+#define STATUSLINE_TIME "statuslinetime"
 #define SEL_CHARS "selchars"
 #define DISABLE_F10 "disablef10"
 #define DISABLE_ALT "disablealt"
@@ -114,6 +123,15 @@ typedef struct _setting {
     gboolean hide_menu_bar;     /* True if menu bar is NOT visible */
     gboolean hide_close_button;     /* True if close buttons are NOT visible */
     gboolean hide_pointer;      /* True if mouse pointer should be auto-hidden */
+    gboolean statusline_enabled;    /* True if the tab bar system statusline is visible */
+    gboolean statusline_color;      /* True if the tab bar system statusline uses colored text */
+    gboolean statusline_cpu;        /* True if CPU usage is shown in the statusline */
+    gboolean statusline_gpu;        /* True if GPU usage is shown in the statusline */
+    gboolean statusline_memory;     /* True if memory usage is shown in the statusline */
+    gboolean statusline_swap;       /* True if swap usage is shown in the statusline */
+    gboolean statusline_temperature;    /* True if temperature is shown in the statusline */
+    gboolean statusline_battery;        /* True if battery is shown in the statusline */
+    gboolean statusline_time;       /* True if time is shown in the statusline */
     char * word_selection_characters;   /* Characters that act as word breaks during selection by word */
     gboolean disable_f10;       /* True if F10 will be passed to program; false if it brings up File menu */
     gboolean disable_alt;       /* True if Alt-n is passed to shell; false if it is used to switch between tabs */
