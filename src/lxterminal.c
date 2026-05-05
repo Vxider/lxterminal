@@ -563,24 +563,36 @@ static gboolean statusline_battery_markup(GString * markup, gboolean use_color)
         return FALSE;
     }
 
-    if (capacity >= 80)
-        icon = " ";
+    if (capacity >= 95)
+        icon = "󰁹";
+    else if (capacity >= 90)
+        icon = "󰂂";
+    else if (capacity >= 80)
+        icon = "󰂁";
+    else if (capacity >= 70)
+        icon = "󰂀";
     else if (capacity >= 60)
-        icon = " ";
+        icon = "󰁿";
+    else if (capacity >= 50)
+        icon = "󰁾";
     else if (capacity >= 40)
-        icon = " ";
+        icon = "󰁽";
+    else if (capacity >= 30)
+        icon = "󰁼";
     else if (capacity >= 20)
-        icon = " ";
+        icon = "󰁻";
+    else if (capacity >= 10)
+        icon = "󰁺";
     else
-        icon = " ";
+        icon = "󰂃";
 
     charging = status != NULL && (g_ascii_strcasecmp(status, "Charging") == 0
                                || g_ascii_strcasecmp(status, "Full") == 0
                                || g_ascii_strcasecmp(status, "Not charging") == 0);
     if (status != NULL && g_ascii_strcasecmp(status, "Charging") == 0)
     {
-        icon = "";
         state_icon = " ";
+        icon = "";
     }
     else if (status != NULL && (g_ascii_strcasecmp(status, "Full") == 0
                              || g_ascii_strcasecmp(status, "Not charging") == 0))
