@@ -114,6 +114,24 @@ static void terminal_initialize_menu_shortcuts(Setting * setting);
 /* Menu accelerator saved when the user disables it. */
 static char * saved_menu_accelerator = NULL;
 #define STATUSLINE_INACTIVE_COLOR "#8a8a8a"
+#define COMPACT_TABBAR_CSS \
+    "notebook > header, notebook > header.top, notebook > header tab, " \
+    "notebook > header tab label, notebook > header button {" \
+    "  min-height: 6px;" \
+    "  padding-top: 0;" \
+    "  padding-bottom: 0;" \
+    "}" \
+    "notebook > header tab {" \
+    "  padding-left: 3px;" \
+    "  padding-right: 3px;" \
+    "}" \
+    "notebook > header button {" \
+    "  min-width: 6px;" \
+    "}" \
+    "#lxterminal-statusline {" \
+    "  padding-top: 0;" \
+    "  padding-bottom: 0;" \
+    "}"
 /* Help when user enters an invalid command. */
 static gchar usage_display[] = {
     "Usage:\n"
@@ -802,6 +820,7 @@ static void terminal_statusline_initialize(LXTerminal * terminal)
     terminal->statusline = gtk_label_new("");
     gtk_label_set_use_markup(GTK_LABEL(terminal->statusline), TRUE);
     gtk_widget_set_name(terminal->statusline, "lxterminal-statusline");
+    gtk_widget_set_size_request(terminal->statusline, -1, 6);
 
 #if GTK_CHECK_VERSION(3, 0, 0)
     gtk_widget_set_halign(terminal->statusline, GTK_ALIGN_END);
@@ -1862,9 +1881,9 @@ static Term * terminal_new(LXTerminal * terminal, const gchar * label, const gch
     term->tab = gtk_event_box_new();
     gtk_widget_set_events(term->tab, GDK_BUTTON_PRESS_MASK);
 #if GTK_CHECK_VERSION(3, 0, 0)
-    GtkWidget * hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    GtkWidget * hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
 #else
-    GtkWidget * hbox = gtk_hbox_new(FALSE, 4);
+    GtkWidget * hbox = gtk_hbox_new(FALSE, 0);
 #endif
     gtk_container_add(GTK_CONTAINER(term->tab), hbox);
 
@@ -1877,10 +1896,11 @@ static Term * terminal_new(LXTerminal * terminal, const gchar * label, const gch
     gtk_button_set_focus_on_click(GTK_BUTTON(term->close_button), FALSE);
 #endif
 #if GTK_CHECK_VERSION(3, 0, 0)
-    gtk_container_add(GTK_CONTAINER(term->close_button), gtk_image_new_from_icon_name("window-close", GTK_ICON_SIZE_MENU));
+    gtk_container_add(GTK_CONTAINER(term->close_button), gtk_image_new_from_icon_name("window-close", GTK_ICON_SIZE_SMALL_TOOLBAR));
 #else
-    gtk_container_add(GTK_CONTAINER(term->close_button), gtk_image_new_from_stock(GTK_STOCK_CLOSE, GTK_ICON_SIZE_MENU));
+    gtk_container_add(GTK_CONTAINER(term->close_button), gtk_image_new_from_stock(GTK_STOCK_CLOSE, GTK_ICON_SIZE_SMALL_TOOLBAR));
 #endif
+    gtk_widget_set_size_request(term->close_button, 6, 6);
 
     /* Make the button as small as possible. */
 #if GTK_CHECK_VERSION(3, 0, 0)
@@ -2291,6 +2311,15 @@ LXTerminal * lxterminal_initialize(LXTermWindow * lxtermwin, CommandArguments * 
     gtk_notebook_set_scrollable(GTK_NOTEBOOK(terminal->notebook), TRUE);
     gtk_notebook_set_show_tabs(GTK_NOTEBOOK(terminal->notebook), FALSE);
     gtk_notebook_set_show_border(GTK_NOTEBOOK(terminal->notebook), FALSE);
+#if GTK_CHECK_VERSION (3, 0, 0)
+    GtkCssProvider * notebook_css_provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(notebook_css_provider, COMPACT_TABBAR_CSS, -1, NULL);
+    gtk_style_context_add_provider(
+        gtk_widget_get_style_context(terminal->notebook),
+        GTK_STYLE_PROVIDER(notebook_css_provider),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(notebook_css_provider);
+#endif
     gtk_box_pack_start(GTK_BOX(terminal->box), terminal->notebook, TRUE, TRUE, 0);
     terminal_statusline_initialize(terminal);
 
