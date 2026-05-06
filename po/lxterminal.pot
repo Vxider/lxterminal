@@ -329,38 +329,42 @@ msgid "Hide mouse pointer"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:42
-msgid "Default window size"
+msgid "Always show tab bar"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:43
-msgid "x"
+msgid "Default window size"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:44
-msgid "Display"
+msgid "x"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:45
-msgid "Select-by-word characters"
+msgid "Display"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:46
-msgid "Disable menu shortcut key (F10 by default)"
+msgid "Select-by-word characters"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:47
-msgid "Disable using Alt-n for tabs and menu"
+msgid "Disable menu shortcut key (F10 by default)"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:48
-msgid "Disable confirmation before closing a window with multiple tabs"
+msgid "Disable using Alt-n for tabs and menu"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:49
-msgid "Tab width"
+msgid "Disable confirmation before closing a window with multiple tabs"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:50
+msgid "Tab width"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:51
 msgid "Advanced"
 msgstr ""
 
