@@ -329,38 +329,82 @@ msgid "Hide mouse pointer"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:42
-msgid "Default window size"
+msgid "System statusline"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:43
-msgid "x"
+msgid "Colored statusline"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:44
-msgid "Display"
+msgid "CPU statusline plugin"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:45
-msgid "Select-by-word characters"
+msgid "GPU statusline plugin"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:46
-msgid "Disable menu shortcut key (F10 by default)"
+msgid "Memory statusline plugin"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:47
-msgid "Disable using Alt-n for tabs and menu"
+msgid "Swap statusline plugin"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:48
-msgid "Disable confirmation before closing a window with multiple tabs"
+msgid "Network statusline plugin"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:49
-msgid "Tab width"
+msgid "Temperature statusline plugin"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:50
+msgid "Battery statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:51
+msgid "Time statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:52
+msgid "Always show tab bar"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:53
+msgid "Default window size"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:54
+msgid "x"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:46
+msgid "Display"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:46
+msgid "Select-by-word characters"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:47
+msgid "Disable menu shortcut key (F10 by default)"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:48
+msgid "Disable using Alt-n for tabs and menu"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:49
+msgid "Disable confirmation before closing a window with multiple tabs"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:50
+msgid "Tab width"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:51
 msgid "Advanced"
 msgstr ""
 

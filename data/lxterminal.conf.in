@@ -2,11 +2,13 @@
 fontname=Monospace 10
 selchars=-A-Za-z0-9,./?%&#:_
 scrollback=1000
+alwaysshowtabs=false
 statuslineenabled=true
 statuslinecolor=true
 statuslinecpu=true
 statuslinegpu=true
 statuslinememory=true
+statuslinenetwork=true
 statuslineswap=true
 statuslinetemperature=true
 statuslinebattery=true

@@ -400,6 +400,11 @@ void terminal_preferences_dialog(GtkAction * action, LXTerminal * terminal)
     g_signal_connect(G_OBJECT(w), "changed", 
         G_CALLBACK(preferences_dialog_tab_position_changed_event), setting);
 
+    w = GTK_WIDGET(gtk_builder_get_object(builder, "always_show_tabs"));
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(w), setting->always_show_tabs);
+    g_signal_connect(G_OBJECT(w), "toggled",
+        G_CALLBACK(preferences_dialog_generic_toggled_event), &setting->always_show_tabs);
+
     w = GTK_WIDGET(gtk_builder_get_object(builder, "scrollback_lines"));
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(w), setting->scrollback);
     g_signal_connect(G_OBJECT(w), "value-changed", 
@@ -454,6 +459,7 @@ void terminal_preferences_dialog(GtkAction * action, LXTerminal * terminal)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_cpu", statusline_cpu)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_gpu", statusline_gpu)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_memory", statusline_memory)
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_network", statusline_network)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_swap", statusline_swap)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_temperature", statusline_temperature)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_battery", statusline_battery)

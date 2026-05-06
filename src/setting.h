@@ -36,6 +36,7 @@
 #define AUDIBLE_BELL "audiblebell"
 #define VISUAL_BELL "visualbell"
 #define TAB_POS "tabpos"
+#define ALWAYS_SHOW_TABS "alwaysshowtabs"
 #define SCROLLBACK "scrollback"
 #define GEOMETRY_COLUMNS "geometry_columns"
 #define GEOMETRY_ROWS "geometry_rows"
@@ -48,6 +49,7 @@
 #define STATUSLINE_CPU "statuslinecpu"
 #define STATUSLINE_GPU "statuslinegpu"
 #define STATUSLINE_MEMORY "statuslinememory"
+#define STATUSLINE_NETWORK "statuslinenetwork"
 #define STATUSLINE_SWAP "statuslineswap"
 #define STATUSLINE_TEMPERATURE "statuslinetemperature"
 #define STATUSLINE_BATTERY "statuslinebattery"
@@ -116,6 +118,7 @@ typedef struct _setting {
     gboolean audible_bell;      /* True if audible bell */
     gboolean visual_bell;       /* True if visual bell */
     char * tab_position;        /* Position of tabs on main window (top, bottom, left, right) */
+    gboolean always_show_tabs;      /* True if tab bar is visible even with one tab */
     gint scrollback;            /* Scrollback buffer size in lines */
     gint geometry_columns;
     gint geometry_rows;
@@ -128,6 +131,7 @@ typedef struct _setting {
     gboolean statusline_cpu;        /* True if CPU usage is shown in the statusline */
     gboolean statusline_gpu;        /* True if GPU usage is shown in the statusline */
     gboolean statusline_memory;     /* True if memory usage is shown in the statusline */
+    gboolean statusline_network;    /* True if network traffic is shown in the statusline */
     gboolean statusline_swap;       /* True if swap usage is shown in the statusline */
     gboolean statusline_temperature;    /* True if temperature is shown in the statusline */
     gboolean statusline_battery;        /* True if battery is shown in the statusline */
