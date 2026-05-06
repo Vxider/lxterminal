@@ -49,6 +49,10 @@ typedef struct _lxterminal {
     guint64 statusline_cpu_idle;        /* Previous idle CPU counter for statusline */
     guint64 statusline_cpu_total;       /* Previous total CPU counter for statusline */
     gboolean statusline_has_cpu_sample; /* True after previous CPU sample */
+    guint64 statusline_network_rx_bytes; /* Previous total RX counter for statusline */
+    guint64 statusline_network_tx_bytes; /* Previous total TX counter for statusline */
+    gint64 statusline_network_time;      /* Previous sample time in monotonic microseconds */
+    gboolean statusline_has_network_sample; /* True after previous network sample */
     gchar * statusline_cached_body;     /* Last non-CPU statusline text */
     GPtrArray * terms;              /* Array of pointers to Term structures */
 //    Setting * setting;                /* A copy of parent->setting */

@@ -332,18 +332,58 @@ msgid "Hide mouse pointer"
 msgstr "隐藏鼠标指针"
 
 #: ../data/lxterminal-preferences.glade.h:42
+msgid "System statusline"
+msgstr "系统状态栏"
+
+#: ../data/lxterminal-preferences.glade.h:43
+msgid "Colored statusline"
+msgstr "彩色状态栏"
+
+#: ../data/lxterminal-preferences.glade.h:44
+msgid "CPU statusline plugin"
+msgstr "CPU 状态栏插件"
+
+#: ../data/lxterminal-preferences.glade.h:45
+msgid "GPU statusline plugin"
+msgstr "GPU 状态栏插件"
+
+#: ../data/lxterminal-preferences.glade.h:46
+msgid "Memory statusline plugin"
+msgstr "内存状态栏插件"
+
+#: ../data/lxterminal-preferences.glade.h:47
+msgid "Swap statusline plugin"
+msgstr "交换分区状态栏插件"
+
+#: ../data/lxterminal-preferences.glade.h:48
+msgid "Network statusline plugin"
+msgstr "网络流量状态栏插件"
+
+#: ../data/lxterminal-preferences.glade.h:49
+msgid "Temperature statusline plugin"
+msgstr "温度状态栏插件"
+
+#: ../data/lxterminal-preferences.glade.h:50
+msgid "Battery statusline plugin"
+msgstr "电池状态栏插件"
+
+#: ../data/lxterminal-preferences.glade.h:51
+msgid "Time statusline plugin"
+msgstr "时间状态栏插件"
+
+#: ../data/lxterminal-preferences.glade.h:52
 msgid "Always show tab bar"
 msgstr "永久显示标签栏"
 
-#: ../data/lxterminal-preferences.glade.h:43
+#: ../data/lxterminal-preferences.glade.h:53
 msgid "Default window size"
 msgstr ""
 
-#: ../data/lxterminal-preferences.glade.h:44
+#: ../data/lxterminal-preferences.glade.h:54
 msgid "x"
 msgstr ""
 
-#: ../data/lxterminal-preferences.glade.h:45
+#: ../data/lxterminal-preferences.glade.h:46
 msgid "Display"
 msgstr "显示"
 

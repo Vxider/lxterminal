@@ -49,6 +49,7 @@
 #define STATUSLINE_CPU "statuslinecpu"
 #define STATUSLINE_GPU "statuslinegpu"
 #define STATUSLINE_MEMORY "statuslinememory"
+#define STATUSLINE_NETWORK "statuslinenetwork"
 #define STATUSLINE_SWAP "statuslineswap"
 #define STATUSLINE_TEMPERATURE "statuslinetemperature"
 #define STATUSLINE_BATTERY "statuslinebattery"
@@ -130,6 +131,7 @@ typedef struct _setting {
     gboolean statusline_cpu;        /* True if CPU usage is shown in the statusline */
     gboolean statusline_gpu;        /* True if GPU usage is shown in the statusline */
     gboolean statusline_memory;     /* True if memory usage is shown in the statusline */
+    gboolean statusline_network;    /* True if network traffic is shown in the statusline */
     gboolean statusline_swap;       /* True if swap usage is shown in the statusline */
     gboolean statusline_temperature;    /* True if temperature is shown in the statusline */
     gboolean statusline_battery;        /* True if battery is shown in the statusline */

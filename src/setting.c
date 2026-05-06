@@ -138,6 +138,7 @@ void print_setting()
     printf("Audible bell: %i\n", setting->audible_bell);
     printf("Tab position: %s\n", setting->tab_position);
     printf("Always show tabs: %i\n", setting->always_show_tabs);
+    printf("Network statusline plugin: %i\n", setting->statusline_network);
     printf("Scrollback buffer size in lines: %i\n", setting->scrollback);
     printf("Hide scrollbar: %i\n", setting->hide_scroll_bar);
     printf("Hide menubar: %i\n", setting->hide_menu_bar);
@@ -241,6 +242,7 @@ void save_setting(const char *profile)
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_CPU, setting->statusline_cpu);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_GPU, setting->statusline_gpu);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_MEMORY, setting->statusline_memory);
+    g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_NETWORK, setting->statusline_network);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_SWAP, setting->statusline_swap);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_TEMPERATURE, setting->statusline_temperature);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_BATTERY, setting->statusline_battery);
@@ -379,6 +381,7 @@ Setting * load_setting(const char * profile)
     setting->statusline_cpu = TRUE;
     setting->statusline_gpu = TRUE;
     setting->statusline_memory = TRUE;
+    setting->statusline_network = TRUE;
     setting->statusline_swap = TRUE;
     setting->statusline_temperature = TRUE;
     setting->statusline_battery = TRUE;
@@ -507,6 +510,11 @@ color_preset_does_not_exist:
         setting->statusline_memory = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_MEMORY, &error);
         if (error && (error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND)) {
             setting->statusline_memory = TRUE;
+        }
+        g_clear_error(&error);
+        setting->statusline_network = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_NETWORK, &error);
+        if (error && (error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND)) {
+            setting->statusline_network = TRUE;
         }
         g_clear_error(&error);
         setting->statusline_swap = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_SWAP, &error);

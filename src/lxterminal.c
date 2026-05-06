@@ -701,11 +701,120 @@ static void statusline_append_time(GString * markup, gboolean use_color)
         g_string_append(markup, buffer);
 }
 
-static gchar * terminal_statusline_build_body(void)
+static gboolean statusline_network_iface_ignored(const gchar * iface)
+{
+    return g_str_has_prefix(iface, "lo")
+        || g_str_has_prefix(iface, "docker")
+        || g_str_has_prefix(iface, "br-")
+        || g_str_has_prefix(iface, "veth")
+        || g_str_has_prefix(iface, "virbr")
+        || g_str_has_prefix(iface, "zt")
+        || g_str_has_prefix(iface, "tailscale")
+        || g_str_has_prefix(iface, "tun")
+        || g_str_has_prefix(iface, "tap")
+        || g_str_has_prefix(iface, "wg");
+}
+
+static gboolean statusline_network_read_bytes(guint64 * rx_bytes, guint64 * tx_bytes)
+{
+    GDir * dir = g_dir_open("/sys/class/net", 0, NULL);
+    const gchar * iface;
+    gboolean found = FALSE;
+
+    if (dir == NULL)
+        return FALSE;
+
+    while ((iface = g_dir_read_name(dir)) != NULL)
+    {
+        gchar * iface_dir = NULL;
+        gchar * operstate_path = NULL;
+        gchar * rx_path = NULL;
+        gchar * tx_path = NULL;
+        gchar * operstate = NULL;
+        gchar * rx_contents = NULL;
+        gchar * tx_contents = NULL;
+
+        if (statusline_network_iface_ignored(iface))
+            continue;
+
+        iface_dir = g_build_filename("/sys/class/net", iface, NULL);
+        operstate_path = g_build_filename(iface_dir, "operstate", NULL);
+        if ( ! g_file_get_contents(operstate_path, &operstate, NULL, NULL))
+            goto next_iface;
+
+        g_strstrip(operstate);
+        if (g_strcmp0(operstate, "up") != 0 && g_strcmp0(operstate, "unknown") != 0)
+            goto next_iface;
+
+        rx_path = g_build_filename(iface_dir, "statistics/rx_bytes", NULL);
+        tx_path = g_build_filename(iface_dir, "statistics/tx_bytes", NULL);
+        if (g_file_get_contents(rx_path, &rx_contents, NULL, NULL)
+        && g_file_get_contents(tx_path, &tx_contents, NULL, NULL))
+        {
+            *rx_bytes += g_ascii_strtoull(rx_contents, NULL, 10);
+            *tx_bytes += g_ascii_strtoull(tx_contents, NULL, 10);
+            found = TRUE;
+        }
+
+next_iface:
+        g_free(tx_contents);
+        g_free(rx_contents);
+        g_free(operstate);
+        g_free(tx_path);
+        g_free(rx_path);
+        g_free(operstate_path);
+        g_free(iface_dir);
+    }
+
+    g_dir_close(dir);
+    return found;
+}
+
+static gchar * statusline_format_rate(guint64 bytes_per_second)
+{
+    const gchar * units[] = { "K", "M", "G", "T" };
+    gdouble value = (gdouble) bytes_per_second / 1024.0;
+    guint unit = 0;
+
+    while (value >= 1024.0 && unit < G_N_ELEMENTS(units) - 1)
+    {
+        value /= 1024.0;
+        unit++;
+    }
+
+    return g_strdup_printf("%3.0f%s", value, units[unit]);
+}
+
+static void statusline_append_network(GString * markup, guint64 rx_rate, guint64 tx_rate, gboolean use_color)
+{
+    gchar * rx = statusline_format_rate(rx_rate);
+    gchar * tx = statusline_format_rate(tx_rate);
+
+    if (use_color)
+    {
+        g_string_append_printf(markup,
+            "<span foreground=\"#00afff\">↓%s</span> <span foreground=\"#4ade80\">↑%s</span> ",
+            rx, tx);
+    }
+    else
+    {
+        g_string_append_printf(markup, "↓%s ↑%s ", rx, tx);
+    }
+
+    g_free(rx);
+    g_free(tx);
+}
+
+static gchar * terminal_statusline_build_body(LXTerminal * terminal)
 {
     Setting * setting = get_setting();
     GString * markup;
     gdouble value = 0.0;
+    guint64 rx_bytes = 0;
+    guint64 tx_bytes = 0;
+    guint64 rx_rate = 0;
+    guint64 tx_rate = 0;
+    gint64 now = g_get_monotonic_time();
     gint temp = 0;
     gboolean use_color = setting->statusline_color;
 
@@ -719,6 +828,26 @@ static gchar * terminal_statusline_build_body(void)
 
     if (setting->statusline_swap)
         statusline_swap_markup(markup, use_color);
+
+    if (setting->statusline_network && statusline_network_read_bytes(&rx_bytes, &tx_bytes))
+    {
+        if (terminal->statusline_has_network_sample && now > terminal->statusline_network_time)
+        {
+            gdouble elapsed = (gdouble) (now - terminal->statusline_network_time) / 1000000.0;
+            if (elapsed > 0.0)
+            {
+                if (rx_bytes >= terminal->statusline_network_rx_bytes)
+                    rx_rate = (guint64) ((rx_bytes - terminal->statusline_network_rx_bytes) / elapsed);
+                if (tx_bytes >= terminal->statusline_network_tx_bytes)
+                    tx_rate = (guint64) ((tx_bytes - terminal->statusline_network_tx_bytes) / elapsed);
+            }
+        }
+        terminal->statusline_network_rx_bytes = rx_bytes;
+        terminal->statusline_network_tx_bytes = tx_bytes;
+        terminal->statusline_network_time = now;
+        terminal->statusline_has_network_sample = TRUE;
+        statusline_append_network(markup, rx_rate, tx_rate, use_color);
+    }
 
     if (setting->statusline_temperature && statusline_cpu_temp(&temp))
         statusline_append_temp(markup, temp, use_color);
@@ -774,7 +903,7 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
         return TRUE;
 
     g_free(terminal->statusline_cached_body);
-    terminal->statusline_cached_body = terminal_statusline_build_body();
+    terminal->statusline_cached_body = terminal_statusline_build_body(terminal);
 
     if (!get_setting()->statusline_cpu)
         terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, FALSE, 0.0));

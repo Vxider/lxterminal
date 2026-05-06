@@ -329,18 +329,58 @@ msgid "Hide mouse pointer"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:42
-msgid "Always show tab bar"
+msgid "System statusline"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:43
-msgid "Default window size"
+msgid "Colored statusline"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:44
-msgid "x"
+msgid "CPU statusline plugin"
 msgstr ""
 
 #: ../data/lxterminal-preferences.glade.h:45
+msgid "GPU statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:46
+msgid "Memory statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:47
+msgid "Swap statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:48
+msgid "Network statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:49
+msgid "Temperature statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:50
+msgid "Battery statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:51
+msgid "Time statusline plugin"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:52
+msgid "Always show tab bar"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:53
+msgid "Default window size"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:54
+msgid "x"
+msgstr ""
+
+#: ../data/lxterminal-preferences.glade.h:46
 msgid "Display"
 msgstr ""
 

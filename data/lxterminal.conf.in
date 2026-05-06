@@ -8,6 +8,7 @@ statuslinecolor=true
 statuslinecpu=true
 statuslinegpu=true
 statuslinememory=true
+statuslinenetwork=true
 statuslineswap=true
 statuslinetemperature=true
 statuslinebattery=true
