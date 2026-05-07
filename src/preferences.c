@@ -32,6 +32,54 @@ GtkBuilder *builder;
 
 gint preset_custom_id;
 
+static gint preferences_dialog_get_screen_height(GtkWindow * window)
+{
+    GdkScreen * screen = gtk_window_get_screen(window);
+
+#if GTK_CHECK_VERSION(3, 22, 0)
+    GdkDisplay * display = gdk_screen_get_display(screen);
+    GdkWindow * gdk_window = gtk_widget_get_window(GTK_WIDGET(window));
+    GdkMonitor * monitor = gdk_window != NULL ? gdk_display_get_monitor_at_window(display, gdk_window) : NULL;
+    GdkRectangle workarea;
+
+    if (monitor == NULL)
+        monitor = gdk_display_get_primary_monitor(display);
+
+    if (monitor != NULL)
+    {
+        gdk_monitor_get_workarea(monitor, &workarea);
+        return workarea.height;
+    }
+#endif
+
+    return gdk_screen_get_height(screen);
+}
+
+static void preferences_dialog_limit_height(GtkDialog * dialog)
+{
+    GtkWidget * scrolled = GTK_WIDGET(gtk_builder_get_object(builder, "preferences_scrolled_window"));
+    GtkRequisition dialog_req;
+    GtkRequisition scrolled_req;
+    gint screen_height;
+    gint max_height;
+    gint chrome_height;
+
+    if (scrolled == NULL)
+        return;
+
+    gtk_widget_show(GTK_WIDGET(dialog));
+    gtk_widget_size_request(GTK_WIDGET(dialog), &dialog_req);
+    screen_height = preferences_dialog_get_screen_height(GTK_WINDOW(dialog));
+    max_height = MAX(240, screen_height - 80);
+
+    if (dialog_req.height <= max_height)
+        return;
+
+    gtk_widget_size_request(scrolled, &scrolled_req);
+    chrome_height = dialog_req.height - scrolled_req.height;
+    gtk_widget_set_size_request(scrolled, -1, MAX(120, max_height - chrome_height));
+}
+
 /* Handler for "font-set" signal on Terminal Font font button. */
 static void preferences_dialog_font_set_event(GtkFontButton * widget, Setting * setting)
 {
@@ -517,6 +565,7 @@ void terminal_preferences_dialog(GtkAction * action, LXTerminal * terminal)
     gtk_window_set_modal(GTK_WINDOW(GTK_DIALOG(dialog)), TRUE);
     gtk_window_set_transient_for(GTK_WINDOW(GTK_DIALOG(dialog)), 
         GTK_WINDOW(terminal->window));
+    preferences_dialog_limit_height(dialog);
 
     int result = gtk_dialog_run(dialog);
     /* Dismiss dialog. */
