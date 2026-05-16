@@ -240,6 +240,7 @@ void save_setting(const char *profile)
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_ENABLED, setting->statusline_enabled);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_COLOR, setting->statusline_color);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_CPU, setting->statusline_cpu);
+    g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_CPU_FREQUENCY, setting->statusline_cpu_frequency);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_GPU, setting->statusline_gpu);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_MEMORY, setting->statusline_memory);
     g_key_file_set_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_NETWORK, setting->statusline_network);
@@ -379,6 +380,7 @@ Setting * load_setting(const char * profile)
     setting->statusline_enabled = TRUE;
     setting->statusline_color = TRUE;
     setting->statusline_cpu = TRUE;
+    setting->statusline_cpu_frequency = TRUE;
     setting->statusline_gpu = TRUE;
     setting->statusline_memory = TRUE;
     setting->statusline_network = TRUE;
@@ -500,6 +502,11 @@ color_preset_does_not_exist:
         setting->statusline_cpu = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_CPU, &error);
         if (error && (error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND)) {
             setting->statusline_cpu = TRUE;
+        }
+        g_clear_error(&error);
+        setting->statusline_cpu_frequency = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_CPU_FREQUENCY, &error);
+        if (error && (error->code == G_KEY_FILE_ERROR_KEY_NOT_FOUND)) {
+            setting->statusline_cpu_frequency = TRUE;
         }
         g_clear_error(&error);
         setting->statusline_gpu = g_key_file_get_boolean(setting->keyfile, GENERAL_GROUP, STATUSLINE_GPU, &error);

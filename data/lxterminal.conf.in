@@ -6,6 +6,7 @@ alwaysshowtabs=false
 statuslineenabled=true
 statuslinecolor=true
 statuslinecpu=true
+statuslinecpufrequency=true
 statuslinegpu=true
 statuslinememory=true
 statuslinenetwork=true

@@ -281,6 +281,80 @@ static gboolean statusline_parse_proc_stat(guint64 * idle_value, guint64 * total
     return result;
 }
 
+static gboolean statusline_cpu_frequency(gdouble * frequency)
+{
+    GDir * cpu_dir;
+    const gchar * name;
+    guint64 total_khz = 0;
+    guint count = 0;
+
+    cpu_dir = g_dir_open("/sys/devices/system/cpu", 0, NULL);
+    if (cpu_dir != NULL)
+    {
+        while ((name = g_dir_read_name(cpu_dir)) != NULL)
+        {
+            guint cpu_index;
+            gchar * path;
+            gchar * contents = NULL;
+            guint64 khz = 0;
+
+            if (sscanf(name, "cpu%u", &cpu_index) != 1)
+                continue;
+
+            path = g_build_filename("/sys/devices/system/cpu", name, "cpufreq", "scaling_cur_freq", NULL);
+            if (g_file_get_contents(path, &contents, NULL, NULL)
+            && sscanf(contents, "%" G_GUINT64_FORMAT, &khz) == 1)
+            {
+                total_khz += khz;
+                count++;
+            }
+            g_free(contents);
+            g_free(path);
+        }
+        g_dir_close(cpu_dir);
+
+        if (count > 0)
+        {
+            *frequency = (gdouble) total_khz / (gdouble) count / 1000000.0;
+            return TRUE;
+        }
+    }
+
+    {
+        gchar * contents = NULL;
+        gchar ** lines;
+        guint i;
+        gdouble total_mhz = 0.0;
+
+        if (!g_file_get_contents("/proc/cpuinfo", &contents, NULL, NULL))
+            return FALSE;
+
+        lines = g_strsplit(contents, "\n", -1);
+
+        for (i = 0; lines[i] != NULL; i++)
+        {
+            gdouble mhz = 0.0;
+            if (g_str_has_prefix(lines[i], "cpu MHz")
+            && sscanf(lines[i], "cpu MHz%*[^0-9]%lf", &mhz) == 1)
+            {
+                total_mhz += mhz;
+                count++;
+            }
+        }
+
+        g_strfreev(lines);
+        g_free(contents);
+
+        if (count > 0)
+        {
+            *frequency = total_mhz / (gdouble) count / 1000.0;
+            return TRUE;
+        }
+    }
+
+    return FALSE;
+}
+
 static void statusline_append_percent(GString * markup, const gchar * icon, gdouble value, gboolean use_color)
 {
     const gchar * color = "#5fff00";
@@ -299,6 +373,14 @@ static void statusline_append_percent(GString * markup, const gchar * icon, gdou
         color = "#ffff00";
 
     g_string_append_printf(markup, "<span foreground=\"%s\">%s%.0f%%</span> ", color, icon, value);
+}
+
+static void statusline_append_frequency(GString * markup, const gchar * icon, gdouble value, gboolean use_color)
+{
+    if (use_color)
+        g_string_append_printf(markup, "<span foreground=\"#5fff00\">%s%.1fGHz</span> ", icon, value);
+    else
+        g_string_append_printf(markup, "%s%.1fGHz ", icon, value);
 }
 
 static gboolean statusline_read_meminfo_value(const gchar * name, guint64 * value)
@@ -861,12 +943,15 @@ static gchar * terminal_statusline_build_body(LXTerminal * terminal)
     return g_string_free(markup, FALSE);
 }
 
-static gchar * terminal_statusline_build_markup(LXTerminal * terminal, gboolean include_cpu, gdouble cpu_usage)
+static gchar * terminal_statusline_build_markup(LXTerminal * terminal, gboolean include_cpu, gdouble cpu_usage, gboolean include_cpu_frequency, gdouble cpu_frequency)
 {
     GString * markup = g_string_new(NULL);
 
     if (get_setting()->statusline_cpu && include_cpu)
         statusline_append_percent(markup, " ", cpu_usage, get_setting()->statusline_color);
+
+    if (get_setting()->statusline_cpu_frequency && include_cpu_frequency)
+        statusline_append_frequency(markup, "󰓅 ", cpu_frequency, get_setting()->statusline_color);
 
     if (terminal->statusline_cached_body != NULL)
         g_string_append(markup, terminal->statusline_cached_body);
@@ -905,8 +990,8 @@ static gboolean terminal_statusline_update(LXTerminal * terminal)
     g_free(terminal->statusline_cached_body);
     terminal->statusline_cached_body = terminal_statusline_build_body(terminal);
 
-    if (!get_setting()->statusline_cpu)
-        terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, FALSE, 0.0));
+    if (!get_setting()->statusline_cpu && !get_setting()->statusline_cpu_frequency)
+        terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, FALSE, 0.0, FALSE, 0.0));
 
     return TRUE;
 }
@@ -916,7 +1001,9 @@ static gboolean terminal_statusline_update_cpu(LXTerminal * terminal)
     guint64 idle = 0;
     guint64 total = 0;
     gdouble usage = 0.0;
+    gdouble frequency = 0.0;
     gboolean include_cpu = FALSE;
+    gboolean include_cpu_frequency = FALSE;
 
     if (terminal->statusline == NULL)
         return FALSE;
@@ -939,7 +1026,10 @@ static gboolean terminal_statusline_update_cpu(LXTerminal * terminal)
         terminal->statusline_has_cpu_sample = TRUE;
     }
 
-    terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, include_cpu, usage));
+    if (get_setting()->statusline_cpu_frequency && statusline_cpu_frequency(&frequency))
+        include_cpu_frequency = TRUE;
+
+    terminal_statusline_set_markup(terminal, terminal_statusline_build_markup(terminal, include_cpu, usage, include_cpu_frequency, frequency));
     return TRUE;
 }
 

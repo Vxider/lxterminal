@@ -47,6 +47,7 @@
 #define STATUSLINE_ENABLED "statuslineenabled"
 #define STATUSLINE_COLOR "statuslinecolor"
 #define STATUSLINE_CPU "statuslinecpu"
+#define STATUSLINE_CPU_FREQUENCY "statuslinecpufrequency"
 #define STATUSLINE_GPU "statuslinegpu"
 #define STATUSLINE_MEMORY "statuslinememory"
 #define STATUSLINE_NETWORK "statuslinenetwork"
@@ -129,6 +130,7 @@ typedef struct _setting {
     gboolean statusline_enabled;    /* True if the tab bar system statusline is visible */
     gboolean statusline_color;      /* True if the tab bar system statusline uses colored text */
     gboolean statusline_cpu;        /* True if CPU usage is shown in the statusline */
+    gboolean statusline_cpu_frequency; /* True if CPU frequency is shown in the statusline */
     gboolean statusline_gpu;        /* True if GPU usage is shown in the statusline */
     gboolean statusline_memory;     /* True if memory usage is shown in the statusline */
     gboolean statusline_network;    /* True if network traffic is shown in the statusline */

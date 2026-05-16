@@ -505,6 +505,7 @@ void terminal_preferences_dialog(GtkAction * action, LXTerminal * terminal)
         G_CALLBACK(preferences_dialog_generic_toggled_event), &setting->VAR);
 
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_cpu", statusline_cpu)
+    PREF_SETUP_STATUSLINE_TOGGLE("statusline_cpu_frequency", statusline_cpu_frequency)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_gpu", statusline_gpu)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_memory", statusline_memory)
     PREF_SETUP_STATUSLINE_TOGGLE("statusline_network", statusline_network)
